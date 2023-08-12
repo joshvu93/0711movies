@@ -1,5 +1,5 @@
-# CISC191
-Intermediate Java Programming Final Project Template
+# 0711 Movies
+Intermediate Java Programming Final Project Template. A library of movies and their ratings from 2007 to 2011.
 ## Prerequisites
 1. Maven
 2. Git
