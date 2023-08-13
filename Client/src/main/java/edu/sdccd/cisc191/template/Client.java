@@ -1,51 +1,48 @@
 package edu.sdccd.cisc191.template;
 
-import java.net.*;
-import java.io.*;
+import com.opencsv.bean.CsvToBeanBuilder;
 
-/**
- * This program opens a connection to a computer specified
- * as the first command-line argument.  If no command-line
- * argument is given, it prompts the user for a computer
- * to connect to.  The connection is made to
- * the port specified by LISTENING_PORT.  The program reads one
- * line of text from the connection and then closes the
- * connection.  It displays the text that it read on
- * standard output.  This program is meant to be used with
- * the server program, DateServer, which sends the current
- * date and time on the computer where the server is running.
- */
+import java.io.*;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class Client {
-    private Socket clientSocket;
-    private PrintWriter out;
-    private BufferedReader in;
-
-    public void startConnection(String ip, int port) throws IOException {
-        clientSocket = new Socket(ip, port);
-        out = new PrintWriter(clientSocket.getOutputStream(), true);
-        in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-    }
-
-    public CustomerResponse sendRequest() throws Exception {
-        out.println(CustomerRequest.toJSON(new CustomerRequest(1)));
-        return CustomerResponse.fromJSON(in.readLine());
-    }
-
-    public void stopConnection() throws IOException {
-        in.close();
-        out.close();
-        clientSocket.close();
-    }
     public static void main(String[] args) {
-        Client client = new Client();
-        try {
-            client.startConnection("127.0.0.1", 4444);
-            System.out.println(client.sendRequest().toString());
-            client.stopConnection();
-        } catch(Exception e) {
-            e.printStackTrace();
-        }
-    }
-} //end class Client
+        List<MovieStats> stats = new CsvToBeanBuilder<MovieStats>(new InputStreamReader(Client.class.getResourceAsStream("/movies.csv")))
+                .withType(MovieStats.class)
+                .build()
+                .parse();
 
+        long streamTime = computeFilmStream(stats);
+        long loopTime = computeFilmLoop(stats);
+
+        System.out.println("\n-----RESULTS-----");
+        System.out.println("Loop took " + loopTime + "ms to complete");
+        System.out.println("Stream took " + streamTime + "ms to complete");
+    }
+
+    public static long computeFilmStream(List<MovieStats> stats) {
+        System.out.println("\n-----Stream-----");
+        long startTime = System.currentTimeMillis();
+
+        Map<String, Integer> filmStats = stats.stream()
+                .collect(Collectors.groupingBy(MovieStats::getFilm, TreeMap::new, Collectors.summingInt(MovieStats::getPercent)));
+
+        filmStats.forEach((film, date) -> System.out.println(film + " " + date));
+
+        return System.currentTimeMillis() - startTime;
+    }
+
+    public static long computeFilmLoop(List<MovieStats> stats) {
+        System.out.println("\n-----Loop-----");
+        long startTime = System.currentTimeMillis();
+
+        Map<String, Integer> filmStats = new TreeMap<>();
+        for (MovieStats stat : stats) {
+            filmStats.merge(stat.getFilm(), stat.getPercent(), Integer::sum);
+        }
+        filmStats.forEach((film, date) -> System.out.println(film + " " + date));
+
+        return System.currentTimeMillis() - startTime;
+    }
+}
