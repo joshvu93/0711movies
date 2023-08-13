@@ -1,48 +1,31 @@
 package edu.sdccd.cisc191.template;
 
-import com.opencsv.bean.CsvToBeanBuilder;
-
-import java.io.*;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.Socket;
+import java.util.List;
 
 public class Client {
+    private static final String SERVER_IP = "localhost";
+    private static final int SERVER_PORT = 12345;
+
     public static void main(String[] args) {
-        List<MovieStats> stats = new CsvToBeanBuilder<MovieStats>(new InputStreamReader(Client.class.getResourceAsStream("/movies.csv")))
-                .withType(MovieStats.class)
-                .build()
-                .parse();
+        try (Socket socket = new Socket(SERVER_IP, SERVER_PORT);
+             ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+             ObjectInputStream in = new ObjectInputStream(socket.getInputStream())) {
 
-        long streamTime = computeFilmStream(stats);
-        long loopTime = computeFilmLoop(stats);
+            Request request = new Request("getMovies");
+            out.writeObject(request);
 
-        System.out.println("\n-----RESULTS-----");
-        System.out.println("Loop took " + loopTime + "ms to complete");
-        System.out.println("Stream took " + streamTime + "ms to complete");
-    }
+            Response response = (Response) in.readObject();
+            List<Movie> movies = response.getMovies();
 
-    public static long computeFilmStream(List<MovieStats> stats) {
-        System.out.println("\n-----Stream-----");
-        long startTime = System.currentTimeMillis();
+            for (Movie movie : movies) {
+                System.out.println(movie.getFilm() + " - " + movie.getGenre() + " - " + movie.getStudio());
+            }
 
-        Map<String, Integer> filmStats = stats.stream()
-                .collect(Collectors.groupingBy(MovieStats::getFilm, TreeMap::new, Collectors.summingInt(MovieStats::getPercent)));
-
-        filmStats.forEach((film, date) -> System.out.println(film + " " + date));
-
-        return System.currentTimeMillis() - startTime;
-    }
-
-    public static long computeFilmLoop(List<MovieStats> stats) {
-        System.out.println("\n-----Loop-----");
-        long startTime = System.currentTimeMillis();
-
-        Map<String, Integer> filmStats = new TreeMap<>();
-        for (MovieStats stat : stats) {
-            filmStats.merge(stat.getFilm(), stat.getPercent(), Integer::sum);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        filmStats.forEach((film, date) -> System.out.println(film + " " + date));
-
-        return System.currentTimeMillis() - startTime;
     }
 }
